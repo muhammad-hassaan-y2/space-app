@@ -2,9 +2,8 @@
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs" 
-
 import React, { useRef, useState, useEffect } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Html, Stars } from '@react-three/drei'
 import * as THREE from 'three'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -19,14 +18,14 @@ const celestialBodies = {
     color: "#FDB813", 
     type: "star", 
     description: "The Sun is the star at the center of our Solar System.", 
-    orbitRadius: 0, // Adding orbitRadius (dummy value)
-    orbitPeriod: Infinity // Adding orbitPeriod (dummy value)
+    orbitRadius: 0, 
+    orbitPeriod: Infinity 
   },
   planets: [
     { name: "Mercury", radius: 0.1, orbitRadius: 4, color: "#A5A5A5", orbitPeriod: 0.24, type: "planet", description: "Mercury is the smallest planet in our Solar System and the closest to the Sun." },
     { name: "Venus", radius: 0.2, orbitRadius: 6, color: "#FFC649", orbitPeriod: 0.62, type: "planet", description: "Venus is often called Earth's twin because of their similar size and mass." },
-    { name: "Earth", radius: 0.2, orbitRadius: 8, color: "#0077BE", orbitPeriod: 1, type: "planet", description: "Earth is the only known planet to support life and has one natural satellite, the Moon." },
-    { name: "Mars", radius: 0.15, orbitRadius: 10, color: "#E27B58", orbitPeriod: 1.88, type: "planet", description: "Mars is often called the Red Planet due to its reddish appearance." },
+    { name: "Earth", radius: 0.25, orbitRadius: 8, color: "#0077BE", orbitPeriod: 1, type: "planet", description: "Earth is the only known planet to support life and has one natural satellite, the Moon." },
+    { name: "Mars", radius: 0.2, orbitRadius: 10, color: "#E27B58", orbitPeriod: 1.88, type: "planet", description: "Mars is often called the Red Planet due to its reddish appearance." },
   ],
   asteroids: [
     { name: "Ceres", radius: 0.05, orbitRadius: 12, color: "#8B8989", orbitPeriod: 4.6, type: "asteroid", description: "Ceres is the largest object in the asteroid belt between Mars and Jupiter." },
@@ -40,46 +39,30 @@ const celestialBodies = {
   ],
 }
 
-
-
 interface CelestialBodyProps {
   body: {
     name: string,
     radius: number,
-    orbitRadius?: number,  // Made optional
+    orbitRadius?: number,
     color: string,
-    orbitPeriod?: number,  // Made optional
+    orbitPeriod?: number,
     type: string,
     description: string,
     tail?: boolean,
   },
   time: number,
-  setSelectedBody: (body: {
-    name: string,
-    radius: number,
-    orbitRadius?: number,  // Made optional
-    color: string,
-    orbitPeriod?: number,  // Made optional
-    type: string,
-    description: string,
-    tail?: boolean,
-  } | null) => void
+  setSelectedBody: (body: CelestialBodyProps['body'] | null) => void
 }
 
 function CelestialBody({ body, time, setSelectedBody }: CelestialBodyProps) {
   const ref = useRef<THREE.Group>(null)
   const { radius, orbitRadius, color, orbitPeriod, tail } = body
-
-  // Set default values if orbitRadius or orbitPeriod are undefined
-  const effectiveOrbitRadius = orbitRadius ?? 0; // Set a default value of 0 if undefined
-  const effectiveOrbitPeriod = orbitPeriod ?? 1; // Set a default value of 1 if undefined
-
-  const angle = (time / effectiveOrbitPeriod) * Math.PI * 2
+  const angle = (time / orbitPeriod) * Math.PI * 2
 
   const position: [number, number, number] = [
-    Math.cos(angle) * effectiveOrbitRadius,
+    Math.cos(angle) * orbitRadius,
     0,
-    Math.sin(angle) * effectiveOrbitRadius,
+    Math.sin(angle) * orbitRadius,
   ]
 
   useFrame(() => {
@@ -90,9 +73,13 @@ function CelestialBody({ body, time, setSelectedBody }: CelestialBodyProps) {
 
   return (
     <group ref={ref}>
-      <mesh onClick={() => setSelectedBody(body)}>
+      <mesh 
+        onClick={() => setSelectedBody(body)}
+        onPointerOver={() => ref.current?.scale.set(1.1, 1.1, 1.1)} // Scale up on hover
+        onPointerOut={() => ref.current?.scale.set(1, 1, 1)} // Scale back on hover out
+      >
         <sphereGeometry args={[radius, 32, 32]} />
-        <meshStandardMaterial color={color} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.5} />
       </mesh>
       {tail && (
         <mesh position={[-radius * 2, 0, 0]}>
@@ -101,21 +88,24 @@ function CelestialBody({ body, time, setSelectedBody }: CelestialBodyProps) {
         </mesh>
       )}
       <Html>
-        <div className="text-white text-xs bg-black bg-opacity-50 px-1 rounded">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="text-white text-xs bg-black bg-opacity-50 px-1 rounded"
+        >
           {body.name}
-        </div>
+        </motion.div>
       </Html>
     </group>
   )
 }
 
-
-
 function Orbit({ radius }: { radius: number }) {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]}>
       <ringGeometry args={[radius, radius + 0.05, 64]} />
-      <meshBasicMaterial color="#FFFFFF" transparent opacity={0.2} side={THREE.DoubleSide} />
+      <meshBasicMaterial color="#FFFFFF" transparent opacity={0.4} side={THREE.DoubleSide} />
     </mesh>
   )
 }
@@ -123,14 +113,14 @@ function Orbit({ radius }: { radius: number }) {
 function Scene({ time, setSelectedBody }: { time: number, setSelectedBody: (body: CelestialBodyProps['body'] | null) => void }) {
   return (
     <>
-      <ambientLight intensity={0.2} />
-      <pointLight position={[0, 0, 0]} intensity={1} />
-      <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-      
+      <ambientLight intensity={0.3} />
+      <pointLight position={[0, 0, 0]} intensity={1.5} />
+      <Stars radius={100} depth={60} count={7000} factor={5} saturation={0} fade speed={2} />
+
       {/* Sun */}
       <mesh onClick={() => setSelectedBody(celestialBodies.sun)}>
         <sphereGeometry args={[celestialBodies.sun.radius, 32, 32]} />
-        <meshStandardMaterial color={celestialBodies.sun.color} emissive={celestialBodies.sun.color} emissiveIntensity={0.5} />
+        <meshStandardMaterial color={celestialBodies.sun.color} emissive={celestialBodies.sun.color} emissiveIntensity={1.5} />
       </mesh>
 
       {/* Planets */}
@@ -157,7 +147,7 @@ function Scene({ time, setSelectedBody }: { time: number, setSelectedBody: (body
         </React.Fragment>
       ))}
 
-      {/* Potentially Hazardous Asteroids */}
+      {/* Potentially Hazardous Asteroids (PHA) */}
       {celestialBodies.pha.map((pha) => (
         <React.Fragment key={pha.name}>
           <CelestialBody body={pha} time={time} setSelectedBody={setSelectedBody} />
@@ -172,13 +162,13 @@ function InfoPanel({ selectedBody }: { selectedBody: CelestialBodyProps['body'] 
   if (!selectedBody) return null
 
   return (
-    <Card className="absolute left-4 top-4 w-64 bg-opacity-80 backdrop-blur-sm">
+    <Card className="absolute left-4 top-4 w-64 bg-opacity-80 backdrop-blur-sm shadow-xl">
       <CardHeader>
-        <CardTitle>{selectedBody.name}</CardTitle>
+        <CardTitle className="text-yellow-400 font-bold">{selectedBody.name}</CardTitle>
       </CardHeader>
       <CardContent>
         <p>{selectedBody.description}</p>
-        <p>Type: {selectedBody.type}</p>
+        <p>Type: <span className="text-yellow-300">{selectedBody.type}</span></p>
         <p>Radius: {selectedBody.radius} units</p>
         <p>Orbit Radius: {selectedBody.orbitRadius} units</p>
         <p>Orbit Period: {selectedBody.orbitPeriod} Earth years</p>
@@ -206,7 +196,7 @@ function InteractiveOrrery() {
   }, [speed, paused])
 
   return (
-    <div className="w-full h-[600px] relative">
+    <div className="w-full h-[600px] relative bg-gradient-to-b from-black to-gray-900 rounded-lg shadow-lg">
       <Canvas camera={{ position: [0, 20, 20], fov: 60 }}>
         <Scene time={time} setSelectedBody={setSelectedBody} />
         <OrbitControls />
@@ -214,8 +204,8 @@ function InteractiveOrrery() {
       
       <InfoPanel selectedBody={selectedBody} />
       
-      <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center bg-opacity-80 backdrop-blur-sm p-4 rounded-lg">
-        <Button onClick={() => setPaused(!paused)}>
+      <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center bg-gray-800 bg-opacity-90 backdrop-blur-sm p-4 rounded-lg shadow-md">
+        <Button className="font-bold text-lg" onClick={() => setPaused(!paused)}>
           {paused ? "Resume" : "Pause"}
         </Button>
         <div className="flex-1 mx-4">
@@ -227,7 +217,7 @@ function InteractiveOrrery() {
             step={0.1}
           />
         </div>
-        <div>Speed: {speed.toFixed(1)}x</div>
+        <div className="text-lg font-bold">Speed: {speed.toFixed(1)}x</div>
       </div>
     </div>
   )
@@ -251,9 +241,9 @@ function DidYouKnow() {
   }, [facts.length])
 
   return (
-    <Card className="w-full">
+    <Card className="w-full bg-opacity-80 backdrop-blur-sm shadow-lg">
       <CardHeader>
-        <CardTitle>Did You Know?</CardTitle>
+        <CardTitle className="text-yellow-300 font-bold">Did You Know?</CardTitle>
       </CardHeader>
       <CardContent>
         <AnimatePresence mode="wait">
@@ -263,6 +253,7 @@ function DidYouKnow() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.5 }}
+            className="text-lg"
           >
             {facts[currentFact]}
           </motion.div>
@@ -274,28 +265,28 @@ function DidYouKnow() {
 
 export default function SpaceEducationOrrery() {
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
       <header className="bg-gray-800 py-4">
         <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold">Space Education Orrery</h1>
+          <h1 className="text-4xl font-extrabold text-yellow-400">Space Education Orrery</h1>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
         <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-4">Interactive Solar System</h2>
+          <h2 className="text-3xl font-bold mb-4 text-yellow-300">Interactive Solar System</h2>
           <InteractiveOrrery />
         </section>
 
         <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-4">Fascinating Facts</h2>
+          <h2 className="text-3xl font-bold mb-4 text-yellow-300">Fascinating Facts</h2>
           <DidYouKnow />
         </section>
       </main>
 
       <footer className="bg-gray-800 py-4">
         <div className="container mx-auto px-4 text-center">
-          <p>&copy; 2024 Space Education Orrery. All rights reserved.</p>
+          <p className="font-bold text-yellow-300">&copy; 2024 Space Education Orrery. All rights reserved.</p>
           <p className="mt-2">
             <a href="#" className="underline">Privacy Policy</a> | 
             <a href="#" className="underline ml-2">Terms of Service</a>
