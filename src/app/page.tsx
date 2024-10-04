@@ -1,9 +1,8 @@
 "use client"
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs" 
 import React, { useRef, useState, useEffect } from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Canvas, useFrame} from '@react-three/fiber'
 import { OrbitControls, Html, Stars } from '@react-three/drei'
 import * as THREE from 'three'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -57,18 +56,19 @@ interface CelestialBodyProps {
 function CelestialBody({ body, time, setSelectedBody }: CelestialBodyProps) {
   const ref = useRef<THREE.Group>(null)
   const { radius, orbitRadius, color, orbitPeriod, tail } = body
-  const angle = (time / orbitPeriod) * Math.PI * 2
+  const angle = (time / (orbitPeriod ?? 1)) * Math.PI * 2;
 
   const position: [number, number, number] = [
-    Math.cos(angle) * orbitRadius,
+    Math.cos(angle) * (orbitRadius ?? 0),
     0,
-    Math.sin(angle) * orbitRadius,
-  ]
+    Math.sin(angle) * (orbitRadius ?? 0),
+  ];
+  
 
   useFrame(() => {
     if (ref.current) {
       ref.current.position.set(...position)
-    }
+    } 
   })
 
   return (
